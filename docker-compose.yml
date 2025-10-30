@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: metabase_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MB_DB_DBNAME}
+      POSTGRES_USER: ${MB_DB_USER}
+      POSTGRES_PASSWORD: ${MB_DB_PASS}
+    volumes:
+      - metabase_db_data:/var/lib/postgresql/data
+    networks:
+      - metabase_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${MB_DB_DBNAME}
+      MB_DB_PORT: 5432
+      MB_DB_HOST: postgres
+      MB_DB_USER: ${MB_DB_USER}
+      MB_DB_PASS: ${MB_DB_PASS}
+      MB_SITE_URL: ${MB_SITE_URL}
+      # Uncomment to set initial admin automatically (optional)
+      # MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL}
+      # MB_ADMIN_FIRST_NAME: ${MB_ADMIN_FIRST_NAME}
+      # MB_ADMIN_LAST_NAME: ${MB_ADMIN_LAST_NAME}
+      # MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD}
+    ports:
+      - 127.0.0.1:3000:3000
+    networks:
+      - metabase_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  metabase_db_data:
+
+networks:
+  metabase_net:
+    driver: bridge
+
+
